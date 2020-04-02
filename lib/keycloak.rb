@@ -192,6 +192,46 @@ module Keycloak
       "#{authorization_endpoint}?#{p}"
     end
 
+    # This method allows logging a user out using their refresh and access token.
+    def self.stateless_logout(redirect_uri = '', refresh_token = '', access_token = '', client_id = '', secret = '', end_session_endpoint = '')
+      verify_setup
+
+      if access_token || !refresh_token.empty?
+
+        refresh_token = self.token['refresh_token'] if refresh_token.empty?
+        client_id = @client_id if isempty?(client_id)
+        secret = @secret if isempty?(secret)
+        end_session_endpoint = @configuration['end_session_endpoint'] if isempty?(end_session_endpoint)
+
+        payload = {'client_id' => client_id,
+                   'client_secret' => secret,
+                   'refresh_token' => refresh_token}
+
+        header = {'Content-Type' => 'application/x-www-form-urlencoded'}
+
+        final_url = if redirect_uri.empty?
+                      end_session_endpoint
+                    else
+                      "#{end_session_endpoint}?#{URI.encode_www_form(redirect_uri: redirect_uri)}"
+                    end
+
+        _request = -> do
+          RestClient.post(final_url, payload, header) { |response, request, result|
+            case response.code
+            when 200..399
+              true
+            else
+              response.return!
+            end
+          }
+        end
+
+        exec_request _request
+      else
+        true
+      end
+    end
+
     def self.logout(redirect_uri = '', refresh_token = '', client_id = '', secret = '', end_session_endpoint = '')
       verify_setup
 
