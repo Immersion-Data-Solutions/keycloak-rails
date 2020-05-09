@@ -629,7 +629,15 @@ module Keycloak
       end
 
       def self.base_url
+        retried = false
         Keycloak::Client.auth_server_url + "/admin/realms/#{Keycloak::Client.realm}/"
+      rescue NoMethodError
+        unless retried 
+          Keycloak::Client.get_installation
+          retry
+        else
+          raise
+        end
       end
 
       def self.full_url(service)
