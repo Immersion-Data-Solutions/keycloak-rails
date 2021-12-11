@@ -736,6 +736,21 @@ module Keycloak
       default_call(proc, client_id, secret)
     end
 
+    def self.delete_user(user_id, client_id = '', secret = '')
+      client_id = Keycloak::Client.client_id if isempty?(client_id)
+      secret = Keycloak::Client.secret if isempty?(secret)
+
+      proc = lambda {|token|
+        Keycloak.generic_request(token['access_token'],
+                                 Keycloak::Admin.full_url("users/#{user_id}"),
+                                 {},
+                                 {},
+                                 'DELETE')
+      }
+
+      default_call(proc, client_id, secret)
+    end
+
     def self.forgot_password(user_login, redirect_uri = '', client_id = '', secret = '')
       client_id = Keycloak::Client.client_id if isempty?(client_id)
       secret = Keycloak::Client.secret if isempty?(secret)
