@@ -196,7 +196,7 @@ module Keycloak
     def self.stateless_logout(redirect_uri = '', refresh_token = '', access_token = '', client_id = '', secret = '', end_session_endpoint = '')
       verify_setup
 
-      if access_token || !refresh_token.empty?
+      if access_token || !refresh_token.blank?
 
         refresh_token = self.token['refresh_token'] if refresh_token.empty?
         client_id = @client_id if isempty?(client_id)
