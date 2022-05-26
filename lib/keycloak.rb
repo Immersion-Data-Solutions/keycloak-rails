@@ -158,7 +158,7 @@ module Keycloak
       client_id = @client_id if isempty?(client_id)
       secret = @secret if isempty?(secret)
       token = self.token['access_token'] if isempty?(token)
-      token_introspection_endpoint = @configuration['token_introspection_endpoint'] if isempty?(token_introspection_endpoint)
+      token_introspection_endpoint = default_introspection_endpoint(@configuration) if isempty?(token_introspection_endpoint)
 
       payload = { 'token' => token }
 
@@ -196,7 +196,7 @@ module Keycloak
     def self.stateless_logout(redirect_uri = '', refresh_token = '', access_token = '', client_id = '', secret = '', end_session_endpoint = '')
       verify_setup
 
-      if access_token || !refresh_token.empty?
+      if access_token || !refresh_token.blank?
 
         refresh_token = self.token['refresh_token'] if refresh_token.empty?
         client_id = @client_id if isempty?(client_id)
@@ -306,7 +306,7 @@ module Keycloak
 
       client_id = @client_id if isempty?(client_id)
       secret = @secret if isempty?(secret)
-      token_introspection_endpoint = @configuration['token_introspection_endpoint'] if isempty?(token_introspection_endpoint)
+      token_introspection_endpoint = default_introspection_endpoint(@configuration) if isempty?(token_introspection_endpoint)
 
       if !Keycloak.validate_token_when_call_has_role || user_signed_in?(access_token, client_id, secret, token_introspection_endpoint)
         dt = decoded_access_token(access_token)[0]
@@ -320,12 +320,16 @@ module Keycloak
       false
     end
 
+    def self.default_introspection_endpoint(config)
+      @configuration['token_introspection_endpoint'] || @configuration['introspection_endpoint']
+    end
+
     def self.user_signed_in?(access_token = '', client_id = '', secret = '', token_introspection_endpoint = '')
       verify_setup
 
       client_id = @client_id if isempty?(client_id)
       secret = @secret if isempty?(secret)
-      token_introspection_endpoint = @configuration['token_introspection_endpoint'] if isempty?(token_introspection_endpoint)
+      token_introspection_endpoint = default_introspection_endpoint(@configuration) if isempty?(token_introspection_endpoint)
 
       begin
         JSON(get_token_introspection(access_token, client_id, secret, token_introspection_endpoint))['active'] === true
@@ -721,6 +725,51 @@ module Keycloak
       default_call(proc, client_id, secret)
     end
 
+    def self.update_user_attributes(user_id, attrs, client_id = '', secret = '')
+      client_id = Keycloak::Client.client_id if isempty?(client_id)
+      secret = Keycloak::Client.secret if isempty?(secret)
+
+      proc = lambda {|token|
+        Keycloak.generic_request(token['access_token'],
+                                 Keycloak::Admin.full_url("users/#{user_id}"),
+                                 {},
+                                 attrs,
+                                 'PUT')
+      }
+
+      default_call(proc, client_id, secret)
+    end
+
+    def self.delete_user(user_id, client_id = '', secret = '')
+      client_id = Keycloak::Client.client_id if isempty?(client_id)
+      secret = Keycloak::Client.secret if isempty?(secret)
+
+      proc = lambda {|token|
+        Keycloak.generic_request(token['access_token'],
+                                 Keycloak::Admin.full_url("users/#{user_id}"),
+                                 {},
+                                 {},
+                                 'DELETE')
+      }
+
+      default_call(proc, client_id, secret)
+    end
+
+    def self.update_account_email(user_id, actions, redirect_uri, client_id = '', access_token = '')
+      client_id = Keycloak::Client.client_id if isempty?(client_id)
+      secret = Keycloak::Client.secret if isempty?(secret)
+
+      proc = lambda {|token|
+        Keycloak.generic_request(token['access_token'],
+                                 Keycloak::Admin.full_url("users/#{user_id}/execute-actions-email"),
+                                 { redirect_uri: redirect_uri, client_id: client_id },
+                                 actions,
+                                 'PUT')
+      }
+
+      default_call(proc, client_id, secret)
+    end
+
     def self.forgot_password(user_login, redirect_uri = '', client_id = '', secret = '')
       client_id = Keycloak::Client.client_id if isempty?(client_id)
       secret = Keycloak::Client.secret if isempty?(secret)
@@ -808,7 +857,7 @@ module Keycloak
       info['federationLink'] != nil
     end
 
-    def self.create_simple_user(username, password, email, first_name, last_name, realm_roles_names, client_roles_names, proc = nil, client_id = '', secret = '')
+    def self.create_simple_user(username, password, email, first_name, last_name, realm_roles_names, client_roles_names, proc = nil, temporary = false, client_id = '', secret = '')
       client_id = Keycloak::Client.client_id if isempty?(client_id)
       secret = Keycloak::Client.secret if isempty?(secret)
 
@@ -836,7 +885,7 @@ module Keycloak
           user = get_user_info(username, true, client_id, secret) if new_user
 
           credential_representation = { type: "password",
-                                        temporary: false,
+                                        temporary: temporary,
                                         value: password }
 
           if user['federationLink'] != nil || Keycloak.generic_request(token["access_token"],
