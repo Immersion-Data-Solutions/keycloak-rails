@@ -770,6 +770,17 @@ module Keycloak
       default_call(proc, client_id, secret)
     end
 
+    def self.update_effective_user_roles(user_id, roles_names, access_token = '', secret = '')
+      client_id = Keycloak::Client.client_id if isempty?(client_id)
+      secret = Keycloak::Client.secret if isempty?(secret)
+
+      proc = lambda do |token|
+        Keycloak::Admin.update_effective_user_roles(user_id, client_id, roles_names, token['access_token'])
+      end
+
+      default_call(proc, client_id, secret)
+    end
+
     def self.forgot_password(user_login, redirect_uri = '', client_id = '', secret = '')
       client_id = Keycloak::Client.client_id if isempty?(client_id)
       secret = Keycloak::Client.secret if isempty?(secret)
