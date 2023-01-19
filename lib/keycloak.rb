@@ -182,6 +182,27 @@ module Keycloak
       exec_request _request
     end
 
+    def self.get_jwks_keys(jwks_endpoint = '')
+      verify_setup
+
+      jwks_endpoint = @configuration['jwks_uri'] if isempty?(jwks_endpoint)
+
+      _request = -> do
+        RestClient.get jwks_endpoint
+      end
+
+      response = exec_request _request
+
+      if response.code == 200
+        body = JSON response.body
+        body['keys']
+      else
+        response.return!
+        # raise Keycloak::KeycloakException, 'Cannot retrieve JWKS keys'
+      end
+    end
+
+
     def self.url_login_redirect(redirect_uri, response_type = 'code', client_id = '', authorization_endpoint = '')
       verify_setup
 
@@ -636,7 +657,7 @@ module Keycloak
         retried = false
         Keycloak::Client.auth_server_url + "/admin/realms/#{Keycloak::Client.realm}/"
       rescue NoMethodError
-        unless retried 
+        unless retried
           Keycloak::Client.get_installation
           retry
         else
